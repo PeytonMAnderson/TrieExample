@@ -1,101 +1,130 @@
+#include <string>
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
-#include <string>
-
-//Sources:
 
 using namespace std;
-int stringCount = 0;
 
-class Node
-{
+class Node {
     private:
         char leadChar;
-        bool IsWord;
+        bool isWord;
         Node *rightSibling;
         Node *firstChild;
     public:
-        void insert(Node *p, string s);
-        void preorderMatch(Node *p, string prefix, string forbidden);
-        void Query(Node *p, string qprefix, string forbidden);
-        Node(char c);
-        Node *search(Node *p, string qprefix);
-        Node *findChild(Node *p, char c);
+        //Constructor
+        Node() {    
+            leadChar = ' ';
+            isWord = false;
+            rightSibling = nullptr;
+            firstChild = nullptr;
+        };
+        Node(char value) {
+            leadChar = value;
+            isWord = false;
+            rightSibling = nullptr;
+            firstChild = nullptr;
+        };
+        //Desctructor
+        ~Node() {
+            delete rightSibling;
+            delete firstChild;
+        };
+        void insert(Node *root, string string); //Insert Function
+        int query(Node *root, string qprefix, string forbidden);   //Query Function
+        Node *search(Node *root, string qprefix);   //Search Function
+        int preorderMatch(Node *root, string prefix, string forbidden);    //Check all nodes under matched prefix
+        Node *findChild(Node *root, char c);    //finds the child of a node that matches character
+
 };
 
-Node::Node(char c)
-{
-    leadChar = c;
-    IsWord = false;
-    rightSibling = nullptr;
-    firstChild = nullptr;
-}
-void Node::insert(Node *p, string s)
-{ // node's children are unordered in the linked list ...not sorted in this case
-//assumes the character at p is already matched.
-    if (s.empty()) 
-    {
-        p->IsWord = true;
+//Insert Function for BST
+void Node::insert(Node *root, string s) {
+    if(s.empty() == true) {
+        root->isWord = true;
         return;
-    }
-    char c = s[0];
-    string ss = s.substr(1,s.length());
-    Node *q = findChild(p,c);
-    if (q == nullptr) 
-    {
-        Node *r = new Node(c);
-        r->rightSibling = p->firstChild;  //insert as leftmost child
-        p->firstChild = r;
-        insert(r, ss);
     } else {
-        insert(q, ss);
+        char c = s[0];
+        string sub = s.substr(1, s.length());   //strip off prefix character
+        Node *q = findChild(root, c);   //find the pointer of the child with stripped character
+        if(q == nullptr || q == NULL) {
+            Node *r = new Node(c);  //If node is empty, create new node here
+            //Sort alphabetically
+                if(root->firstChild != nullptr && c > root->firstChild->leadChar) {
+                    Node *temp = root->firstChild;
+                    while (temp->rightSibling != nullptr) {
+                            if(temp->rightSibling->leadChar > c) {
+                                break;
+                            } else {
+                                temp = temp->rightSibling;
+                            }
+                        }
+                    r->rightSibling = temp->rightSibling;
+                    temp->rightSibling = r;
+                } else {
+                    r->rightSibling = root->firstChild;
+                    root->firstChild = r;
+                }
+            insert(r, sub); //Recurse down trie untill input string is empty
+        } else {
+            insert(q, sub); //Recurse down trie untill input string is empty
+        }
     }
+    return;
 }
-void Node::Query(Node *p, string qprefix, string forbidden) 
-{
-    Node *q = search(p,qprefix);
-    preorderMatch(q, qprefix, forbidden);
+
+//
+int Node::query(Node *root, string qprefix, string forbidden) {
+    Node *q = search(root, qprefix);
+    return preorderMatch(q, qprefix, forbidden);
 }
-Node* Node::search(Node *p, string qprefix)
-{
-    if (qprefix.length() == 0) 
-        return p;
-    Node *q = findChild(p, qprefix[0]);
-    if (q == nullptr) 
-        return nullptr;
-    return search(q, qprefix.substr(1,qprefix.length()));
-}
-void Node::preorderMatch(Node *p, string prefix, string forbidden)
-{
-    if(p == nullptr) return;
-    if (p->IsWord) stringCount++;
-    Node *q = p->firstChild;
-    while(q != nullptr) 
-    {
-        if(forbidden.find(q->leadChar) == string::npos) preorderMatch(q, prefix + q->leadChar, forbidden);
+
+//
+int Node::preorderMatch(Node *root, string prefix, string forbidden) {
+    if(root == NULL || root == nullptr) return 0;
+    int count  = 0;
+    if(root->isWord == true) {count++;}
+    Node *q = root->firstChild;
+    while(q != NULL || q != nullptr) {
+        bool forbid = false;
+        for(int i = 0; i < forbidden.length(); i++) {if(q->leadChar == forbidden[i]) forbid = true;}    //If lead Character is in forbidden string
+        if(forbid == false) {
+            count = count + preorderMatch(q, prefix+q->leadChar, forbidden);}
         q = q->rightSibling;
     }
+    return count;
 }
 
-Node* Node::findChild(Node *p, char c)
-{
-    Node *q = p->firstChild;
-    while (q != nullptr && q->leadChar != c) q = q->rightSibling;
-    return q;
+//
+Node* Node::search(Node *root, string qprefix) {
+    if(qprefix.empty() == true) return root;
+    Node *q = findChild(root, qprefix[0]);
+    if(q == NULL || q == nullptr) return NULL;
+    return search(q, qprefix.substr(1, qprefix.length()));
 }
 
+//
+Node* Node::findChild(Node *root, char c) {
+    Node *q = root->firstChild;
+    if(q != nullptr) {
+        while(q != nullptr && q->leadChar != c) {q = q->rightSibling;}}
+    return q;}
 
-int main()
-{
-    Node *n = new Node('\0');
-    fstream f("WORD.LST");
+//Main Function
+int main() {
+    Node *n = new Node(); //Declare new BST
+    fstream w("WORD.LST");
+    fstream f("inputFile.txt");
+    int queryCount = 0;
     string newString;
-    while(f >> newString) {
-        if(newString.length() == 5) n->insert(n, newString);
+    //Insert WORD.LST into Trie
+    while(w >> newString) {
+        if(newString.length() == 5) {
+            n->insert(n, newString);
+        }
     }
-    fstream g("inputFile.txt");
     string prefix, forbidden;
-    g >> prefix >> forbidden;
-    n->Query(n, prefix, forbidden);
-    cout<<stringCount<<endl;
-}
+    f >> prefix >> forbidden;
+    queryCount = n->query(n, prefix, forbidden);
+    cout<<queryCount<<endl;
+};
